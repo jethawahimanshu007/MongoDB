@@ -1,0 +1,30 @@
+A hw db is created and twitter.json file is used to populate twitter collection.
+
+Index creation:
+db.twitter.ensureIndex({"user.friends_count":1,"entities.hashtags.text":1,"user.name":1})
+
+Following are some queries which can be used to analyze the twitter data:
+1) Find users with more than 100 followers(Using this, we can find out famous people on twitter):
+
+db.twitter.find({"user.friends_count": {$gt:100}},{"user.screen_name":1})
+
+2) Find people who have mentioned more than 10 people in one tweet(Using this, we can find out the bots on twitter or annoying spams done by any user):
+db.twitter.find( {"entities.user_mentions" : {$exists:true}, $where:'this.entities.user_mentions.length>=10'},{"user.name":1} )
+
+3) Find names of people who have been mentioned sorted by descending order of their number of mentions (Can be used to find out which users are getting mentioned a lot): 
+db.twitter.aggregate( [ {$project: {_id:0,"entities.user_mentions":1}}, {$unwind:"$entities.user_mentions"}, {$group: { _id: "$entities.user_mentions.name", "tags": { $sum: 1 } }},{$sort: { "tags": -1 } }])
+
+4) Find hashtags and their count in the order of descending order of count(can be used to find trends):
+db.twitter.aggregate( [ {$project: {_id:0,"entities.hashtags":1}}, {$unwind:"$entities.hashtags"}, {$group: { _id: "$entities.hashtags.text", "tags": { $sum: 1 } }},{$sort: { "tags": -1 } }])
+
+5) Find total occurences of word "play"(can be used to find trends, note, this is case insensitive search):
+db.twitter.aggregate([{$project : {"text":1}},{$match: {"text":{$regex: "play",$options:"-i"}}},{$group:{_id:"text","numberOfTweets":{$sum:1}}} ])
+
+6) Find total number of tweets containing the word "play"(used to find trends):
+db.twitter.find({text:{$regex:"play",$options:'-i'}},{text:1}).count()
+
+7) Find users and the count of tweets and print them in descending order of their number of tweets(can be used to find the most active users and also finding the users who have been inactive so that mails can be sent to them to get them online):
+db.twitter.aggregate([{$project:{"user.name":1}},{$group:{_id:"$user.name",sum:{$sum:1}}},{$sort:{sum:-1}}])
+
+8) Find difference between the number of tweets between two given users(can be used to compare who is more active):
+db.twitter.find({"user.name":"Sarah"},{"user.name":1}).count()-db.twitter.find({"user.name":"David"},{"user.name":1}).count()
